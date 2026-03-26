@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>情緒暴走區</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #0f0a1e;
+  --bg-mid: #1a1035;
+  --accent: #a855f7;
+  --accent-light: #c084fc;
+  --accent-dim: #7c3aed;
+  --neon-cyan: #22d3ee;
+  --neon-pink: #f472b6;
+  --neon-orange: #fb923c;
+  --surface: rgba(255,255,255,0.06);
+  --text-primary: #f0e7ff;
+  --text-secondary: #a78bfa;
+  --correct: #34d399;
+  --wrong: #f87171;
+  --radius: 16px;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body {
+  font-family: 'Noto Sans TC', sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* ── Background ── */
+.bg-layer {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  background: linear-gradient(160deg, #0f0a1e 0%, #1a1035 40%, #0f0a1e 70%, #1a1035 100%);
+}
+.bg-layer::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 600px 600px at 20% 20%, rgba(168,85,247,0.12), transparent),
+    radial-gradient(ellipse 500px 500px at 80% 70%, rgba(34,211,238,0.08), transparent),
+    radial-gradient(ellipse 400px 400px at 50% 50%, rgba(244,114,182,0.06), transparent);
+}
+.bg-orb {
+  position: absolute; border-radius: 50%; filter: blur(80px); will-change: transform;
+}
+.bg-orb-1 { width:300px;height:300px;top:10%;left:-5%;background:rgba(168,85,247,0.15);animation:drift 12s ease-in-out infinite; }
+.bg-orb-2 { width:250px;height:250px;bottom:10%;right:-5%;background:rgba(34,211,238,0.12);animation:drift 15s ease-in-out infinite 3s; }
+.bg-orb-3 { width:200px;height:200px;top:50%;left:40%;background:rgba(244,114,182,0.1);animation:drift 10s ease-in-out infinite 6s; }
+@keyframes drift {
+  0%,100%{transform:translate(0,0)} 33%{transform:translate(30px,20px)} 66%{transform:translate(-20px,30px)}
+}
+.grid-lines {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(168,85,247,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(168,85,247,0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ── Screens ── */
+.screen { position: relative; z-index: 1; min-height: 100dvh; display: none; }
+.screen.active { display: flex; }
+
+/* ── Cover ── */
+#cover {
+  flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px; text-align: center; gap: 20px;
+}
+.cover-icon {
+  font-size: 90px; animation: pulse-icon 2.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 30px rgba(168,85,247,0.4));
+}
+@keyframes pulse-icon { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+.cover-title {
+  font-family: 'Noto Sans TC', sans-serif;
+  font-weight: 900;
+  font-size: clamp(2.4rem, 9vw, 3.8rem);
+  letter-spacing: 0.08em;
+  color: #fff;
+  text-shadow:
+    0 0 20px rgba(168,85,247,0.5),
+    0 0 40px rgba(168,85,247,0.3),
+    0 2px 0px rgba(0,0,0,0.3);
+  line-height: 1.3;
+}
+.cover-sub { color: var(--text-secondary); font-weight: 600; font-size: 1.05rem; }
+.cover-card {
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(168,85,247,0.2);
+  border-radius: 20px; padding: 24px; max-width: 340px; width: 100%;
+}
+.cover-card p { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.7; }
+
+.team-select-label {
+  color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;
+}
+.team-btns { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 300px; }
+.team-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 16px 24px;
+  border: none; border-radius: 14px; font-size: 1.1rem; font-weight: 700;
+  font-family: 'Noto Sans TC', sans-serif; cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s; color: #fff;
+}
+.team-btn:active:not(:disabled) { transform: scale(0.96); }
+.team-btn:disabled { opacity: 0.3; cursor: not-allowed; filter: grayscale(0.6); }
+.team-btn.fire { background: linear-gradient(135deg, #f97316, #ef4444); box-shadow: 0 4px 20px rgba(239,68,68,0.3); }
+.team-btn.ice { background: linear-gradient(135deg, #06b6d4, #3b82f6); box-shadow: 0 4px 20px rgba(59,130,246,0.3); }
+.team-taken-hint {
+  font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: -6px;
+}
+
+/* Reset link */
+.reset-link {
+  color: rgba(255,255,255,0.25); font-size: 0.75rem; cursor: pointer;
+  text-decoration: underline; margin-top: 8px;
+}
+.reset-link:hover { color: rgba(255,255,255,0.4); }
+
+/* ── Game ── */
+#game {
+  flex-direction: column; padding: 0 0 100px;
+}
+.game-header {
+  position: sticky; top: 0; z-index: 20;
+  background: rgba(15,10,30,0.88); backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(168,85,247,0.15);
+  padding: 12px 16px;
+}
+.team-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.team-label {
+  font-weight: 900; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;
+}
+.team-label.fire-text { color: #fb923c; }
+.team-label.ice-text { color: #22d3ee; }
+.score-display { font-weight: 900; font-size: 1rem; color: var(--accent-light); }
+.progress-row {
+  display: grid; grid-template-columns: repeat(10,1fr); gap: 4px;
+}
+.progress-dot {
+  height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1);
+  transition: background 0.3s;
+}
+.progress-dot.current { background: var(--accent); }
+.progress-dot.done { background: var(--correct); }
+.progress-dot.wrong { background: var(--wrong); }
+
+.game-body { padding: 20px 16px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
+
+/* Question card */
+.q-card {
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(168,85,247,0.15);
+  border-radius: 20px; padding: 20px; margin-bottom: 20px;
+  text-align: center;
+  animation: slideUp 0.4s ease;
+}
+@keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+.q-number {
+  display: inline-block; padding: 4px 14px; border-radius: 20px;
+  background: var(--accent-dim); color: #fff;
+  font-weight: 700; font-size: 0.8rem; margin-bottom: 12px;
+}
+.q-title {
+  font-size: 1.25rem; font-weight: 900; margin-bottom: 6px; line-height: 1.4;
+}
+.q-desc { font-size: 0.85rem; color: var(--text-secondary); }
+
+/* Options */
+.options-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.opt-btn {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 14px 16px;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(168,85,247,0.15);
+  border-radius: 14px; cursor: pointer;
+  transition: all 0.2s; text-align: left;
+  font-family: 'Noto Sans TC', sans-serif;
+  color: var(--text-primary); font-size: 0.95rem; font-weight: 600;
+}
+.opt-btn:active { transform: scale(0.97); }
+.opt-btn .opt-emoji { font-size: 1.5rem; flex-shrink: 0; }
+.opt-btn .opt-check {
+  margin-left: auto; width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid rgba(168,85,247,0.3); display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; font-size: 0.8rem;
+}
+.opt-btn.selected {
+  border-color: var(--accent);
+  background: rgba(168,85,247,0.15);
+  box-shadow: 0 0 16px rgba(168,85,247,0.2);
+}
+.opt-btn.selected .opt-check {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+.opt-btn.correct-reveal {
+  border-color: var(--correct); background: rgba(52,211,153,0.12);
+}
+.opt-btn.correct-reveal .opt-check { background: var(--correct); border-color: var(--correct); color: #fff; }
+.opt-btn.wrong-reveal {
+  border-color: var(--wrong); background: rgba(248,113,113,0.1); opacity: 0.7;
+}
+.opt-btn.wrong-reveal .opt-check { background: var(--wrong); border-color: var(--wrong); color: #fff; }
+.opt-btn.missed-reveal {
+  border-color: var(--correct); background: rgba(52,211,153,0.06);
+  border-style: dashed;
+}
+.opt-btn.missed-reveal .opt-check { border-color: var(--correct); color: var(--correct); }
+.opt-btn:disabled { cursor: default; }
+
+.selection-hint {
+  text-align: center; color: var(--text-secondary); font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+.selection-count { color: var(--accent-light); font-weight: 900; }
+
+/* Submit */
+.submit-btn {
+  width: 100%; padding: 16px; border: none; border-radius: 14px;
+  font-size: 1.1rem; font-weight: 700; font-family: 'Noto Sans TC', sans-serif;
+  cursor: pointer; transition: all 0.2s; color: #fff;
+  background: linear-gradient(135deg, var(--accent-dim), var(--accent));
+  box-shadow: 0 4px 20px rgba(124,58,237,0.3);
+}
+.submit-btn:disabled {
+  opacity: 0.35; pointer-events: none; box-shadow: none;
+}
+.submit-btn:active:not(:disabled) { transform: scale(0.97); }
+
+/* Result toast */
+.result-toast {
+  text-align: center; padding: 20px;
+  border-radius: 16px; margin-top: 16px;
+  animation: popIn 0.35s ease;
+}
+@keyframes popIn { from{opacity:0;transform:scale(0.9)} to{opacity:1;transform:none} }
+.result-toast.good {
+  background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3);
+}
+.result-toast.bad {
+  background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3);
+}
+.result-icon { font-size: 48px; margin-bottom: 8px; }
+.result-score { font-size: 1.4rem; font-weight: 900; }
+.result-score.good { color: var(--correct); }
+.result-score.bad { color: var(--wrong); }
+.result-detail { font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px; }
+.next-btn {
+  margin-top: 14px; padding: 12px 32px; border: none; border-radius: 12px;
+  font-size: 1rem; font-weight: 700; color: #fff; cursor: pointer;
+  font-family: 'Noto Sans TC', sans-serif;
+  background: var(--accent-dim); transition: transform 0.2s;
+}
+.next-btn:active { transform: scale(0.96); }
+
+/* ── Final screen ── */
+#final {
+  flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px; text-align: center; gap: 16px;
+}
+.final-icon { font-size: 80px; animation: pulse-icon 2s ease-in-out infinite; }
+.final-title {
+  font-family: 'Noto Sans TC', sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.8rem, 6vw, 2.5rem);
+}
+.final-title.pass { color: var(--correct); }
+.final-title.fail { color: var(--wrong); }
+.final-score-big { font-size: 3rem; font-weight: 900; }
+.final-sub { color: var(--text-secondary); font-size: 0.95rem; max-width: 320px; line-height: 1.6; }
+
+.final-card {
+  background: var(--surface); border: 1px solid rgba(168,85,247,0.2);
+  border-radius: 20px; padding: 20px; max-width: 380px; width: 100%;
+}
+.final-grid {
+  display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; margin-top: 12px;
+}
+.final-cell {
+  padding: 6px 2px; border-radius: 8px; text-align: center;
+  font-size: 0.75rem; font-weight: 700;
+}
+.final-cell.scored { background: rgba(52,211,153,0.15); color: var(--correct); }
+.final-cell.zero { background: rgba(255,255,255,0.05); color: #666; }
+
+/* Scoreboard */
+.scoreboard {
+  background: var(--surface); border: 1px solid rgba(168,85,247,0.25);
+  border-radius: 20px; padding: 20px; max-width: 380px; width: 100%;
+}
+.sb-title {
+  font-weight: 700; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 14px;
+}
+.sb-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-radius: 12px; margin-bottom: 8px;
+}
+.sb-row.fire-row { background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.25); }
+.sb-row.ice-row { background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.25); }
+.sb-team { font-weight: 700; font-size: 1rem; }
+.sb-team.fire-text { color: #fb923c; }
+.sb-team.ice-text { color: #22d3ee; }
+.sb-score { font-weight: 900; font-size: 1.2rem; }
+.sb-score.fire-text { color: #fb923c; }
+.sb-score.ice-text { color: #22d3ee; }
+.sb-waiting {
+  color: rgba(255,255,255,0.3); font-size: 0.85rem; font-style: italic;
+}
+.sb-pass { font-size: 0.75rem; font-weight: 600; margin-left: 6px; }
+.sb-pass.yes { color: var(--correct); }
+.sb-pass.no { color: var(--wrong); }
+
+.clue-card-box {
+  background: linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.1));
+  border: 2px solid rgba(251,191,36,0.4);
+  border-radius: 16px; padding: 20px; max-width: 320px; width: 100%;
+  animation: glow-border 2s ease-in-out infinite alternate;
+}
+@keyframes glow-border {
+  from { box-shadow: 0 0 10px rgba(251,191,36,0.2); }
+  to { box-shadow: 0 0 25px rgba(251,191,36,0.4); }
+}
+.clue-icon { font-size: 48px; margin-bottom: 8px; }
+.clue-text { color: #fbbf24; font-weight: 700; font-size: 1.1rem; }
+.clue-sub { color: #d4a44a; font-size: 0.85rem; margin-top: 4px; }
+
+.restart-btn {
+  padding: 14px 36px; border: 2px solid var(--accent); background: transparent;
+  border-radius: 14px; color: var(--accent-light); font-weight: 700; font-size: 1rem;
+  font-family: 'Noto Sans TC', sans-serif; cursor: pointer; transition: all 0.2s;
+}
+.restart-btn:active { transform: scale(0.96); background: rgba(168,85,247,0.1); }
+
+/* Loading spinner */
+.spinner {
+  width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.15);
+  border-top-color: var(--accent-light); border-radius: 50%;
+  animation: spin 0.7s linear infinite; margin: 0 auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="bg-layer">
+  <div class="grid-lines"></div>
+  <div class="bg-orb bg-orb-1"></div>
+  <div class="bg-orb bg-orb-2"></div>
+  <div class="bg-orb bg-orb-3"></div>
+</div>
+
+<!-- ═══ COVER ═══ -->
+<div id="cover" class="screen active">
+  <div class="cover-icon">🌋</div>
+  <h1 class="cover-title">情緒暴走區</h1>
+  <p class="cover-sub">情緒管理小遊戲</p>
+  <div class="cover-card">
+    <p>透過 <strong>10 個情境題目</strong>，學習管理你的情緒！<br>每題 5 個選項，選出最好的 3 個答案。<br>總分超過 <strong style="color:#fbbf24">200 分</strong> 即可通關 🏆</p>
+  </div>
+  <p class="team-select-label">選擇你的小隊</p>
+  <div class="team-btns">
+    <button class="team-btn fire" id="btn-fire" onclick="selectTeam('fire')">🔥 火焰隊</button>
+    <button class="team-btn ice" id="btn-ice" onclick="selectTeam('ice')">❄️ 冰霜隊</button>
+  </div>
+  <div id="taken-hint" class="team-taken-hint" style="display:none"></div>
+  <span class="reset-link" id="reset-link" onclick="resetGame()">重置遊戲（關主用）</span>
+</div>
+
+<!-- ═══ GAME ═══ -->
+<div id="game" class="screen">
+  <div class="game-header">
+    <div class="team-banner">
+      <div id="team-label" class="team-label fire-text">🔥 火焰隊</div>
+      <div id="score-display" class="score-display">0 分</div>
+    </div>
+    <div class="progress-row" id="progress-row"></div>
+  </div>
+  <div class="game-body" id="game-body"></div>
+</div>
+
+<!-- ═══ FINAL ═══ -->
+<div id="final" class="screen"></div>
+
+<script>
+// ── Question Data ──
+const QUESTIONS = [
+  {
+    title: '生病了怎麼辦？',
+    desc: '你早上起來全身發燙，頭暈想吐⋯⋯',
+    emoji: '🤒',
+    options: [
+      { id:1, emoji:'🏃', text:'離家出走', correct:false },
+      { id:2, emoji:'📞', text:'打電話到學校，請假一天', correct:true },
+      { id:3, emoji:'🎮', text:'爆打電動一整天', correct:false },
+      { id:4, emoji:'😴', text:'晚上早點休息', correct:true },
+      { id:5, emoji:'💊', text:'到診所看醫生，按時吃藥', correct:true },
+    ]
+  },
+  {
+    title: '分組報告時的困境',
+    desc: '組員滑手機不幫忙，該怎麼辦？',
+    emoji: '😤',
+    options: [
+      { id:1, emoji:'😌', text:'冷靜情緒', correct:true },
+      { id:2, emoji:'👨‍🏫', text:'直接跟老師告狀', correct:false },
+      { id:3, emoji:'💬', text:'詢問對方是否遇到困難', correct:true },
+      { id:4, emoji:'🚪', text:'退出群組', correct:false },
+      { id:5, emoji:'🎯', text:'分配具體任務給他', correct:true },
+    ]
+  },
+  {
+    title: '好朋友洩露秘密',
+    desc: '你的秘密被好朋友說出去了⋯⋯',
+    emoji: '😢',
+    options: [
+      { id:1, emoji:'💔', text:'絕交', correct:false },
+      { id:2, emoji:'💭', text:'找時間單獨談談', correct:true },
+      { id:3, emoji:'😔', text:'先讓自己冷靜', correct:true },
+      { id:4, emoji:'😠', text:'去講對方的秘密報復', correct:false },
+      { id:5, emoji:'💬', text:'表達自己的受傷感受', correct:true },
+    ]
+  },
+  {
+    title: '遊戲輸了很不甘心',
+    desc: '玩遊戲輸了很不甘心，想摔手機⋯⋯',
+    emoji: '😠',
+    options: [
+      { id:1, emoji:'🚶', text:'放下手機離開現場', correct:true },
+      { id:2, emoji:'😤', text:'罵髒話抒發', correct:false },
+      { id:3, emoji:'🔍', text:'回想剛才失誤的地方', correct:true },
+      { id:4, emoji:'🫁', text:'深呼吸三次', correct:true },
+      { id:5, emoji:'😡', text:'遷怒身邊的人', correct:false },
+    ]
+  },
+  {
+    title: '老師誤會我作弊',
+    desc: '老師誤會你作弊，當眾罵了你⋯⋯',
+    emoji: '😭',
+    options: [
+      { id:1, emoji:'💢', text:'當場拍桌反駁', correct:false },
+      { id:2, emoji:'👂', text:'冷靜聽完老師的話', correct:true },
+      { id:3, emoji:'🚪', text:'直接走出教室', correct:false },
+      { id:4, emoji:'💬', text:'課後找老師說明原委', correct:true },
+      { id:5, emoji:'📋', text:'整理能證明清白的證據', correct:true },
+    ]
+  },
+  {
+    title: '排隊被插隊',
+    desc: '有人直接插隊在你面前⋯⋯',
+    emoji: '😠',
+    options: [
+      { id:1, emoji:'💥', text:'爆氣把對方推開', correct:false },
+      { id:2, emoji:'👀', text:'先觀察對方是否不小心', correct:true },
+      { id:3, emoji:'😶', text:'默默忍耐', correct:false },
+      { id:4, emoji:'💬', text:'客氣地提醒對方隊伍末端', correct:true },
+      { id:5, emoji:'🧘', text:'調整自己不滿的情緒', correct:true },
+    ]
+  },
+  {
+    title: '網路被酸',
+    desc: '你在網路發文，被陌生人留言酸「很醜」⋯⋯',
+    emoji: '😢',
+    options: [
+      { id:1, emoji:'🔥', text:'留言互罵', correct:false },
+      { id:2, emoji:'🚫', text:'直接封鎖或刪除留言', correct:true },
+      { id:3, emoji:'💭', text:'告訴自己對方的評論不代表我', correct:true },
+      { id:4, emoji:'😢', text:'難過到關掉帳號', correct:false },
+      { id:5, emoji:'🎯', text:'勤行唱題轉換自己的境界', correct:true },
+    ]
+  },
+  {
+    title: '隱私被侵犯',
+    desc: '爸媽沒敲門進你房間，還亂動東西⋯⋯',
+    emoji: '😠',
+    options: [
+      { id:1, emoji:'🧘', text:'唱題20分鐘冷靜情緒', correct:true },
+      { id:2, emoji:'😱', text:'大聲尖叫', correct:false },
+      { id:3, emoji:'🙏', text:'請爸媽尊重隱私', correct:true },
+      { id:4, emoji:'😤', text:'反過來去亂動爸媽的東西', correct:false },
+      { id:5, emoji:'❤️', text:'告訴爸媽你的感受', correct:true },
+    ]
+  },
+  {
+    title: '不小心撞到人',
+    desc: '在路上不小心撞到人，對方看起來很生氣⋯⋯',
+    emoji: '😬',
+    options: [
+      { id:1, emoji:'🏃', text:'趕快跑掉', correct:false },
+      { id:2, emoji:'🙏', text:'主動道歉並詢問有無受傷', correct:true },
+      { id:3, emoji:'🌟', text:'緣份讓我們相遇，邀請他參加座談會', correct:true },
+      { id:4, emoji:'😠', text:'先發制人罵他沒看路', correct:false },
+      { id:5, emoji:'😊', text:'保持禮貌的距離', correct:true },
+    ]
+  },
+  {
+    title: '上台報告緊張',
+    desc: '上台報告前緊張到手心狂冒汗、發抖⋯⋯',
+    emoji: '😰',
+    options: [
+      { id:1, emoji:'🫁', text:'深呼吸並給自己心理建設', correct:true },
+      { id:2, emoji:'🤒', text:'裝病請假', correct:false },
+      { id:3, emoji:'🏃', text:'提早到現場熟悉環境', correct:true },
+      { id:4, emoji:'💧', text:'喝小口水潤喉冷靜', correct:true },
+      { id:5, emoji:'😰', text:'一直想著會出糗', correct:false },
+    ]
+  }
+];
+
+// ── Storage helpers ──
+const STORAGE_KEY = 'emotion-game-state';
+
+async function loadState() {
+  try {
+    const r = await window.storage.get(STORAGE_KEY, true);
+    return r ? JSON.parse(r.value) : null;
+  } catch { return null; }
+}
+
+async function saveState(state) {
+  try {
+    await window.storage.set(STORAGE_KEY, JSON.stringify(state), true);
+  } catch(e) { console.warn('Storage save failed', e); }
+}
+
+async function clearState() {
+  try {
+    await window.storage.delete(STORAGE_KEY, true);
+  } catch(e) { console.warn('Storage clear failed', e); }
+}
+
+// ── Game State ──
+let team = '';
+let currentQ = 0;
+let selected = [];
+let questionScores = new Array(10).fill(0);
+let totalScore = 0;
+let submitted = false;
+
+// ── Init: check which teams are taken ──
+async function initCover() {
+  const state = await loadState();
+  const btnFire = document.getElementById('btn-fire');
+  const btnIce = document.getElementById('btn-ice');
+  const hint = document.getElementById('taken-hint');
+
+  btnFire.disabled = false;
+  btnIce.disabled = false;
+  hint.style.display = 'none';
+
+  if (state) {
+    if (state.fire) {
+      btnFire.disabled = true;
+      btnFire.textContent = '🔥 火焰隊（已加入）';
+      hint.style.display = 'block';
+      hint.textContent = '火焰隊已在另一台裝置進行中';
+    }
+    if (state.ice) {
+      btnIce.disabled = true;
+      btnIce.textContent = '❄️ 冰霜隊（已加入）';
+      hint.style.display = 'block';
+      hint.textContent = hint.textContent ? '兩隊皆已加入' : '冰霜隊已在另一台裝置進行中';
+    }
+  }
+}
+
+// ── Screens ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+async function selectTeam(t) {
+  team = t;
+  // Register team in shared storage
+  let state = await loadState() || {};
+  if (state[t]) {
+    alert('此隊伍已被另一台裝置選擇！');
+    await initCover();
+    return;
+  }
+  state[t] = { status: 'playing', score: 0, scores: [] };
+  await saveState(state);
+
+  currentQ = 0;
+  selected = [];
+  questionScores = new Array(10).fill(0);
+  totalScore = 0;
+  submitted = false;
+
+  showScreen('game');
+  renderHeader();
+  renderQuestion();
+}
+
+async function resetGame() {
+  if (!confirm('確定要重置遊戲嗎？（兩隊資料都會清除）')) return;
+  await clearState();
+  const btnFire = document.getElementById('btn-fire');
+  const btnIce = document.getElementById('btn-ice');
+  btnFire.disabled = false;
+  btnFire.textContent = '🔥 火焰隊';
+  btnIce.disabled = false;
+  btnIce.textContent = '❄️ 冰霜隊';
+  document.getElementById('taken-hint').style.display = 'none';
+  showScreen('cover');
+  await initCover();
+}
+
+function renderHeader() {
+  const label = document.getElementById('team-label');
+  if (team === 'fire') {
+    label.className = 'team-label fire-text';
+    label.innerHTML = '🔥 火焰隊';
+  } else {
+    label.className = 'team-label ice-text';
+    label.innerHTML = '❄️ 冰霜隊';
+  }
+  document.getElementById('score-display').textContent = totalScore + ' 分';
+
+  const row = document.getElementById('progress-row');
+  row.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'progress-dot';
+    if (i < currentQ) {
+      dot.className += questionScores[i] > 0 ? ' done' : ' wrong';
+    } else if (i === currentQ) {
+      dot.className += ' current';
+    }
+    row.appendChild(dot);
+  }
+}
+
+function renderQuestion() {
+  selected = [];
+  submitted = false;
+  const q = QUESTIONS[currentQ];
+  const body = document.getElementById('game-body');
+
+  body.innerHTML = `
+    <div class="q-card">
+      <div class="q-number">第 ${currentQ + 1} 題 / 10</div>
+      <div style="font-size:56px;margin:12px 0">${q.emoji}</div>
+      <div class="q-title">${q.title}</div>
+      <div class="q-desc">${q.desc}</div>
+    </div>
+    <div class="selection-hint">
+      選出最好的 3 個答案（已選 <span class="selection-count" id="sel-count">0</span> / 3）
+    </div>
+    <div class="options-grid" id="opts"></div>
+    <button class="submit-btn" id="submit-btn" disabled onclick="submitAnswer()">確認答案</button>
+    <div id="result-area"></div>
+  `;
+
+  const opts = document.getElementById('opts');
+  const shuffled = [...q.options].sort(() => Math.random() - 0.5);
+  shuffled.forEach(o => {
+    const btn = document.createElement('button');
+    btn.className = 'opt-btn';
+    btn.dataset.id = o.id;
+    btn.innerHTML = `
+      <span class="opt-emoji">${o.emoji}</span>
+      <span>${o.text}</span>
+      <span class="opt-check"></span>
+    `;
+    btn.onclick = () => toggleOption(o.id, btn);
+    opts.appendChild(btn);
+  });
+
+  renderHeader();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleOption(id, btn) {
+  if (submitted) return;
+  const idx = selected.indexOf(id);
+  if (idx > -1) {
+    selected.splice(idx, 1);
+    btn.classList.remove('selected');
+  } else {
+    if (selected.length >= 3) return;
+    selected.push(id);
+    btn.classList.add('selected');
+  }
+  document.getElementById('sel-count').textContent = selected.length;
+  document.getElementById('submit-btn').disabled = selected.length !== 3;
+}
+
+async function submitAnswer() {
+  if (submitted) return;
+  submitted = true;
+
+  const q = QUESTIONS[currentQ];
+  const correctIds = q.options.filter(o => o.correct).map(o => o.id);
+  let score = 0;
+  selected.forEach(id => {
+    if (correctIds.includes(id)) score += 10;
+  });
+  questionScores[currentQ] = score;
+  totalScore = questionScores.reduce((a, b) => a + b, 0);
+
+  // Update shared storage
+  try {
+    let state = await loadState() || {};
+    if (state[team]) {
+      state[team].score = totalScore;
+      state[team].scores = [...questionScores];
+      if (currentQ === 9) state[team].status = 'done';
+      await saveState(state);
+    }
+  } catch(e) { console.warn('Storage update failed', e); }
+
+  // Reveal
+  document.querySelectorAll('.opt-btn').forEach(btn => {
+    const id = Number(btn.dataset.id);
+    const isCorrect = correctIds.includes(id);
+    const wasSelected = selected.includes(id);
+    btn.disabled = true;
+    btn.classList.remove('selected');
+    const check = btn.querySelector('.opt-check');
+    if (wasSelected && isCorrect) {
+      btn.classList.add('correct-reveal');
+      check.textContent = '✓';
+    } else if (wasSelected && !isCorrect) {
+      btn.classList.add('wrong-reveal');
+      check.textContent = '✗';
+    } else if (!wasSelected && isCorrect) {
+      btn.classList.add('missed-reveal');
+      check.textContent = '!';
+    }
+  });
+
+  document.getElementById('submit-btn').style.display = 'none';
+  document.querySelector('.selection-hint').style.display = 'none';
+
+  const isLast = currentQ === 9;
+  const area = document.getElementById('result-area');
+  const goodClass = score === 30 ? 'good' : 'bad';
+  area.innerHTML = `
+    <div class="result-toast ${goodClass}">
+      <div class="result-icon">${score === 30 ? '🎉' : '🤔'}</div>
+      <div class="result-score ${goodClass}">+${score} 分</div>
+      <div class="result-detail">${score === 30 ? '全部正確！' : `答對 ${score / 10} 題（正確答案已標示）`}</div>
+      <button class="next-btn" onclick="${isLast ? 'showFinal()' : 'nextQuestion()'}">
+        ${isLast ? '🏆 查看結果' : '➡️ 下一題'}
+      </button>
+    </div>
+  `;
+
+  renderHeader();
+}
+
+function nextQuestion() {
+  currentQ++;
+  renderQuestion();
+}
+
+async function showFinal() {
+  showScreen('final');
+  const passed = totalScore >= 200;
+  const state = await loadState() || {};
+
+  const otherTeam = team === 'fire' ? 'ice' : 'fire';
+  const otherData = state[otherTeam] || null;
+
+  const el = document.getElementById('final');
+  el.innerHTML = `
+    <div class="final-icon">${passed ? '🏆' : '💪'}</div>
+    <div class="final-title ${passed ? 'pass' : 'fail'}">
+      ${passed ? '恭喜通關！' : '繼續加油！'}
+    </div>
+    <div class="final-score-big" style="color:${passed ? 'var(--correct)' : 'var(--wrong)'}">
+      ${totalScore} 分
+    </div>
+    <div class="final-sub">
+      ${team === 'fire' ? '🔥 火焰隊' : '❄️ 冰霜隊'}｜滿分 300 分，通關門檻 200 分
+    </div>
+
+    ${passed ? `
+      <div class="clue-card-box">
+        <div class="clue-icon">🗝️</div>
+        <div class="clue-text">恭喜獲得線索卡！</div>
+        <div class="clue-sub">請向關主領取實體線索卡</div>
+      </div>
+    ` : `
+      <div style="color:var(--text-secondary);font-size:0.9rem;max-width:280px;line-height:1.6">
+        差一點點！再挑戰一次<br>超過 200 分就能獲得線索卡 🗝️
+      </div>
+    `}
+
+    <div class="final-card">
+      <div style="font-weight:700;font-size:0.9rem;color:var(--text-secondary)">各題得分</div>
+      <div class="final-grid">
+        ${questionScores.map((s, i) => `
+          <div class="final-cell ${s > 0 ? 'scored' : 'zero'}">
+            第${i+1}題<br><strong>${s}</strong>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- Scoreboard -->
+    <div class="scoreboard">
+      <div class="sb-title">📊 兩隊積分</div>
+      <div class="sb-row fire-row">
+        <div class="sb-team fire-text">🔥 火焰隊</div>
+        <div>
+          ${state.fire
+            ? `<span class="sb-score fire-text">${state.fire.score} 分</span>
+               <span class="sb-pass ${state.fire.score >= 200 ? 'yes' : 'no'}">${state.fire.status === 'done' ? (state.fire.score >= 200 ? '✓ 通關' : '✗ 未通關') : '進行中⋯'}</span>`
+            : '<span class="sb-waiting">尚未加入</span>'
+          }
+        </div>
+      </div>
+      <div class="sb-row ice-row">
+        <div class="sb-team ice-text">❄️ 冰霜隊</div>
+        <div>
+          ${state.ice
+            ? `<span class="sb-score ice-text">${state.ice.score} 分</span>
+               <span class="sb-pass ${state.ice.score >= 200 ? 'yes' : 'no'}">${state.ice.status === 'done' ? (state.ice.score >= 200 ? '✓ 通關' : '✗ 未通關') : '進行中⋯'}</span>`
+            : '<span class="sb-waiting">尚未加入</span>'
+          }
+        </div>
+      </div>
+    </div>
+
+    <button class="restart-btn" onclick="refreshScoreboard()">🔄 重新整理積分</button>
+    <span class="reset-link" onclick="fullReset()">重置遊戲（關主用）</span>
+  `;
+}
+
+async function refreshScoreboard() {
+  await showFinal();
+}
+
+async function fullReset() {
+  if (!confirm('確定要重置整個遊戲嗎？（兩隊資料都會清除）')) return;
+  await clearState();
+  showScreen('cover');
+  const btnFire = document.getElementById('btn-fire');
+  const btnIce = document.getElementById('btn-ice');
+  btnFire.disabled = false;
+  btnFire.textContent = '🔥 火焰隊';
+  btnIce.disabled = false;
+  btnIce.textContent = '❄️ 冰霜隊';
+  document.getElementById('taken-hint').style.display = 'none';
+}
+
+// Init
+initCover();
+</script>
+</body>
+</html>
