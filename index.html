@@ -363,14 +363,11 @@ body {
   <h1 class="cover-title">情緒暴走區</h1>
   <p class="cover-sub">情緒管理小遊戲</p>
   <div class="cover-card">
-    <p>透過 <strong>10 個情境題目</strong>，學習管理你的情緒！<br>每題 5 個選項，選出最好的 3 個答案。<br>總分超過 <strong style="color:#fbbf24">200 分</strong> 即可通關 🏆</p>
+    <p>透過 <strong>10 個情境題目</strong>，學習管理你的情緒！<br>每題 5 個選項，選出最好的 3 個答案。<br>總分超過 <strong style="color:#fbbf24">150 分</strong> 即可通關 🏆</p>
   </div>
-  <p class="team-select-label">選擇你的小隊</p>
   <div class="team-btns">
-    <button class="team-btn fire" id="btn-fire" onclick="selectTeam('fire')">🔥 火焰隊</button>
-    <button class="team-btn ice" id="btn-ice" onclick="selectTeam('ice')">❄️ 冰霜隊</button>
+    <button class="team-btn fire" onclick="startGame()">🎮 開始遊戲</button>
   </div>
-  <div id="taken-hint" class="team-taken-hint" style="display:none"></div>
   <span class="reset-link" id="reset-link" onclick="resetGame()">重置遊戲（關主用）</span>
 </div>
 
@@ -378,7 +375,7 @@ body {
 <div id="game" class="screen">
   <div class="game-header">
     <div class="team-banner">
-      <div id="team-label" class="team-label fire-text">🔥 火焰隊</div>
+      <div class="team-label fire-text">🌋 情緒暴走區</div>
       <div id="score-display" class="score-display">0 分</div>
     </div>
     <div class="progress-row" id="progress-row"></div>
@@ -537,39 +534,11 @@ async function clearState() {
 }
 
 // ── Game State ──
-let team = '';
 let currentQ = 0;
 let selected = [];
 let questionScores = new Array(10).fill(0);
 let totalScore = 0;
 let submitted = false;
-
-// ── Init: check which teams are taken ──
-async function initCover() {
-  const state = await loadState();
-  const btnFire = document.getElementById('btn-fire');
-  const btnIce = document.getElementById('btn-ice');
-  const hint = document.getElementById('taken-hint');
-
-  btnFire.disabled = false;
-  btnIce.disabled = false;
-  hint.style.display = 'none';
-
-  if (state) {
-    if (state.fire) {
-      btnFire.disabled = true;
-      btnFire.textContent = '🔥 火焰隊（已加入）';
-      hint.style.display = 'block';
-      hint.textContent = '火焰隊已在另一台裝置進行中';
-    }
-    if (state.ice) {
-      btnIce.disabled = true;
-      btnIce.textContent = '❄️ 冰霜隊（已加入）';
-      hint.style.display = 'block';
-      hint.textContent = hint.textContent ? '兩隊皆已加入' : '冰霜隊已在另一台裝置進行中';
-    }
-  }
-}
 
 // ── Screens ──
 function showScreen(id) {
@@ -577,17 +546,8 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 
-async function selectTeam(t) {
-  team = t;
-  // Register team in shared storage
-  let state = await loadState() || {};
-  if (state[t]) {
-    alert('此隊伍已被另一台裝置選擇！');
-    await initCover();
-    return;
-  }
-  state[t] = { status: 'playing', score: 0, scores: [] };
-  await saveState(state);
+async function startGame() {
+  await saveState({ status: 'playing', score: 0, scores: [] });
 
   currentQ = 0;
   selected = [];
@@ -601,28 +561,12 @@ async function selectTeam(t) {
 }
 
 async function resetGame() {
-  if (!confirm('確定要重置遊戲嗎？（兩隊資料都會清除）')) return;
+  if (!confirm('確定要重置遊戲嗎？')) return;
   await clearState();
-  const btnFire = document.getElementById('btn-fire');
-  const btnIce = document.getElementById('btn-ice');
-  btnFire.disabled = false;
-  btnFire.textContent = '🔥 火焰隊';
-  btnIce.disabled = false;
-  btnIce.textContent = '❄️ 冰霜隊';
-  document.getElementById('taken-hint').style.display = 'none';
   showScreen('cover');
-  await initCover();
 }
 
 function renderHeader() {
-  const label = document.getElementById('team-label');
-  if (team === 'fire') {
-    label.className = 'team-label fire-text';
-    label.innerHTML = '🔥 火焰隊';
-  } else {
-    label.className = 'team-label ice-text';
-    label.innerHTML = '❄️ 冰霜隊';
-  }
   document.getElementById('score-display').textContent = totalScore + ' 分';
 
   const row = document.getElementById('progress-row');
@@ -707,15 +651,12 @@ async function submitAnswer() {
   questionScores[currentQ] = score;
   totalScore = questionScores.reduce((a, b) => a + b, 0);
 
-  // Update shared storage
   try {
-    let state = await loadState() || {};
-    if (state[team]) {
-      state[team].score = totalScore;
-      state[team].scores = [...questionScores];
-      if (currentQ === 9) state[team].status = 'done';
-      await saveState(state);
-    }
+    await saveState({
+      status: currentQ === 9 ? 'done' : 'playing',
+      score: totalScore,
+      scores: [...questionScores],
+    });
   } catch(e) { console.warn('Storage update failed', e); }
 
   // Reveal
@@ -765,11 +706,7 @@ function nextQuestion() {
 
 async function showFinal() {
   showScreen('final');
-  const passed = totalScore >= 200;
-  const state = await loadState() || {};
-
-  const otherTeam = team === 'fire' ? 'ice' : 'fire';
-  const otherData = state[otherTeam] || null;
+  const passed = totalScore >= 150;
 
   const el = document.getElementById('final');
   el.innerHTML = `
@@ -781,7 +718,7 @@ async function showFinal() {
       ${totalScore} 分
     </div>
     <div class="final-sub">
-      ${team === 'fire' ? '🔥 火焰隊' : '❄️ 冰霜隊'}｜滿分 300 分，通關門檻 200 分
+      滿分 300 分，通關門檻 150 分
     </div>
 
     ${passed ? `
@@ -792,7 +729,7 @@ async function showFinal() {
       </div>
     ` : `
       <div style="color:var(--text-secondary);font-size:0.9rem;max-width:280px;line-height:1.6">
-        差一點點！再挑戰一次<br>超過 200 分就能獲得線索卡 🗝️
+        差一點點！再挑戰一次<br>超過 150 分就能獲得線索卡 🗝️
       </div>
     `}
 
@@ -807,55 +744,16 @@ async function showFinal() {
       </div>
     </div>
 
-    <!-- Scoreboard -->
-    <div class="scoreboard">
-      <div class="sb-title">📊 兩隊積分</div>
-      <div class="sb-row fire-row">
-        <div class="sb-team fire-text">🔥 火焰隊</div>
-        <div>
-          ${state.fire
-            ? `<span class="sb-score fire-text">${state.fire.score} 分</span>
-               <span class="sb-pass ${state.fire.score >= 200 ? 'yes' : 'no'}">${state.fire.status === 'done' ? (state.fire.score >= 200 ? '✓ 通關' : '✗ 未通關') : '進行中⋯'}</span>`
-            : '<span class="sb-waiting">尚未加入</span>'
-          }
-        </div>
-      </div>
-      <div class="sb-row ice-row">
-        <div class="sb-team ice-text">❄️ 冰霜隊</div>
-        <div>
-          ${state.ice
-            ? `<span class="sb-score ice-text">${state.ice.score} 分</span>
-               <span class="sb-pass ${state.ice.score >= 200 ? 'yes' : 'no'}">${state.ice.status === 'done' ? (state.ice.score >= 200 ? '✓ 通關' : '✗ 未通關') : '進行中⋯'}</span>`
-            : '<span class="sb-waiting">尚未加入</span>'
-          }
-        </div>
-      </div>
-    </div>
-
-    <button class="restart-btn" onclick="refreshScoreboard()">🔄 重新整理積分</button>
+    <button class="restart-btn" onclick="fullReset()">🔄 重新開始</button>
     <span class="reset-link" onclick="fullReset()">重置遊戲（關主用）</span>
   `;
 }
 
-async function refreshScoreboard() {
-  await showFinal();
-}
-
 async function fullReset() {
-  if (!confirm('確定要重置整個遊戲嗎？（兩隊資料都會清除）')) return;
+  if (!confirm('確定要重置整個遊戲嗎？')) return;
   await clearState();
   showScreen('cover');
-  const btnFire = document.getElementById('btn-fire');
-  const btnIce = document.getElementById('btn-ice');
-  btnFire.disabled = false;
-  btnFire.textContent = '🔥 火焰隊';
-  btnIce.disabled = false;
-  btnIce.textContent = '❄️ 冰霜隊';
-  document.getElementById('taken-hint').style.display = 'none';
 }
-
-// Init
-initCover();
 </script>
 </body>
 </html>
